@@ -15,7 +15,6 @@
       - [nvidia-container-toolkit](#nvidia-container-toolkit)
       - [OpenCV with CUDA, cuDNN](#opencv-with-cuda--cudnn)
         * [Arch Build Package](#arch-build-package)
-        * [BASH](#bash)
         * [opencv-python](#opencv-python)
   * [Nice to Have Packages](#nice-to-have-packages)
   * [Check Python OpenCV Status](#check-python-opencv-status)
@@ -344,12 +343,9 @@ Other useful resources were:
 
 
 ##### Arch Build Package
-```bash
-git clone https://aur.archlinux.org/opencv-cuda.git
-asp export opencv
-cp opencv/*.patch opencv-cuda
-```
-I [sorted](https://sortmylist.com/) and [compared](https://www.diffchecker.com/diff) the flags for `opencv` and `opencv-cuda`.
+See commit changes for what I vaguely did previously, but it seems like now you can just install `opencv-cuda` and `python-opencv` via `pacman`.
+
+When I did this manually in the past, I [sorted](https://sortmylist.com/) and [compared](https://www.diffchecker.com/diff) the flags for `opencv` and `opencv-cuda`.
 Then added the following to the modified `opencv-cuda` PKGBUILD.
 ```
 OPENCV_ENABLE_NONFREE=ON
@@ -370,75 +366,6 @@ Note that the`CUDA_ARCH_BIN` version of is based on my GPU, see the full compati
 | TITAN V             | 7.0                |
 | 10XX/Titan V/Xp/X   | 6.1                |
 
-
-##### BASH
-
-**OUTDATED:**
-The info below is outdated since the AUR package was removed. These commands were relevant for [v4.5.2](https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=opencv-cuda&id=0e5af8ca4a708994fee7a050d4f34d54505eb719)
-
-There were the shell commands I ran to test the process
-```bash
-pkgver=4.5.2
-srcdir="$PWD"
-wget https://github.com/opencv/opencv/archive/$pkgver/opencv-$pkgver.tar.gz
-wget https://github.com/opencv/opencv_contrib/archive/$pkgver/opencv_contrib-$pkgver.tar.gz
-cp ../opencv/opencv-openexr3.patch .
-tar zxvf opencv-$pkgver.tar.gz
-tar zxvf opencv_contrib-$pkgver.tar.gz
-patch -d "opencv-$pkgver" -p1 < opencv-openexr3.patch
-sed -i 's|nvcuvid.h|nvidia-sdk/nvcuvid.h|' opencv_contrib-$pkgver/modules/cud*/src/*.hpp
-find "opencv-$pkgver" -name '*.cpp' -exec sed -i s/dgels_/LAPACK_dgels/g {} \;
-
-
-mkdir -p build
-cd build
-# Make sure you activate your virtualenv and install correct version requirements such as numpy==1.19.5
-_pythonpath=`python -c "from sysconfig import get_path; print(get_path('platlib'))"`
-echo $_pythonpath
-
-cmake ../opencv-$pkgver \
--GNinja \
--DWITH_OPENCL=ON \
--DWITH_OPENGL=ON \
--DWITH_TBB=ON \
--DOpenGL_GL_PREFERENCE=GLVND \
--DBUILD_WITH_DEBUG_INFO=OFF \
--DBUILD_TESTS=OFF \
--DBUILD_PERF_TESTS=OFF \
--DBUILD_EXAMPLES=ON \
--DINSTALL_C_EXAMPLES=ON \
--DINSTALL_PYTHON_EXAMPLES=ON \
--DCMAKE_INSTALL_PREFIX=/usr \
--DCMAKE_INSTALL_LIBDIR=lib \
--DCPU_BASELINE_DISABLE=SSE3 \
--DCPU_BASELINE_REQUIRE=SSE2 \
--DWITH_NVCUVID=ON \
--DWITH_CUDA=ON \
--DCUDA_FAST_MATH=ON \
--DWITH_CUBLAS=ON \
--DOPENCV_ENABLE_NONFREE=ON \
--DWITH_VULKAN=ON \
--DBUILD_opencv_python2=OFF \
--DBUILD_opencv_python3=ON \
--DWITH_CUDNN=ON \
--DOPENCV_DNN_CUDA=ON \
--DCUDA_ARCH_BIN=8.6 \
--DENABLE_FAST_MATH=ON \
--DCUDA_HOST_COMPILER=/opt/cuda/bin/gcc \
--DOPENCV_EXTRA_MODULES_PATH="$srcdir/opencv_contrib-$pkgver/modules" \
--DOPENCV_SKIP_PYTHON_LOADER=ON \
--DEIGEN_INCLUDE_PATH=/usr/include/eigen3 \
--DOPENCV_PYTHON3_INSTALL_PATH=$_pythonpath \
--DLAPACK_LIBRARIES="/usr/lib/liblapack.so;/usr/lib/libblas.so;/usr/lib/libcblas.so" \
--DLAPACK_CBLAS_H="/usr/include/cblas.h" \
--DLAPACK_LAPACKE_H="/usr/include/lapacke.h" \
--DOPENCV_GENERATE_PKGCONFIG=ON
-ninja
-sudo ? ninja install
-```
-
-**Current Steps:**
-???
 
 ##### opencv-python
 This is more convenient when dealing with virtual environments
