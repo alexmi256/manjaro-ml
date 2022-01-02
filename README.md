@@ -370,14 +370,40 @@ Note that the`CUDA_ARCH_BIN` version of is based on my GPU, see the full compati
 ##### opencv-python
 This is more convenient when dealing with virtual environments
 The idea is you clone the [opencv-python](https://github.com/opencv/opencv-python#manual-builds), export flags as shell variables, and then build the package.
+The flags I settled on are:
+```
+-DCUDA_ARCH_BIN=8.6
+-DCUDA_FAST_MATH=ON
+-DCUDA_HOST_COMPILER=/opt/cuda/bin/gcc
+-DCUDA_nvcuvid_LIBRARY=/usr/lib/libnvcuvid.so
+-DEIGEN_INCLUDE_PATH=/usr/include/eigen3
+-DENABLE_FAST_MATH=ON
+-DLAPACK_CBLAS_H=/usr/include/cblas.h
+-DLAPACK_LAPACKE_H=/usr/include/lapacke.h
+-DLAPACK_LIBRARIES=/usr/lib/liblapack.so;/usr/lib/libblas.so;/usr/lib/libcblas.so
+-DOPENCV_DNN_CUDA=ON
+-DOPENCV_ENABLE_NONFREE=ON
+-DOpenGL_GL_PREFERENCE=GLVND
+-DWITH_CUBLAS=ON
+-DWITH_CUDA=ON
+-DWITH_CUDNN=ON
+-DWITH_CUFFT=ON
+-DWITH_LAPACK=ON
+-DWITH_NVCUVID=ON
+-DWITH_OPENCL=ON
+-DWITH_OPENGL=ON
+-DWITH_QT=5
+-DWITH_TBB=ON
+-DWITH_VULKAN=ON
+```
+The commands for this look something like:
 ```bash
 virtualenv venv
 source venv/bin/activate
 pip install mpi4py
 git clone --recursive https://github.com/opencv/opencv-python.git
-export ENABLE_CONTRIB=1
-export ENABLE_HEADLESS=0
-export CMAKE_ARGS="-DCUDA_ARCH_BIN=8.6 -DCUDA_HOST_COMPILER=/opt/cuda/bin/gcc -DCUDA_nvcuvid_LIBRARY=/usr/lib/libnvcuvid.so -DCUDA_FAST_MATH=ON -DEIGEN_INCLUDE_PATH=/usr/include/eigen3 -DENABLE_FAST_MATH=ON -DLAPACK_CBLAS_H=/usr/include/cblas.h -DLAPACK_LAPACKE_H=/usr/include/lapacke.h -DLAPACK_LIBRARIES=/usr/lib/liblapack.so;/usr/lib/libblas.so;/usr/lib/libcblas.so -DOPENCV_DNN_CUDA=ON -DOPENCV_ENABLE_NONFREE=ON -DWITH_CUBLAS=ON -DWITH_CUDA=ON -DWITH_CUDNN=ON -DWITH_CUFFT=ON -DWITH_LAPACK=ON -DWITH_NVCUVID=ON -DWITH_OPENCL=ON -DWITH_OPENGL=ON -DWITH_QT=ON -DWITH_TBB=ON -DWITH_VULKAN=ON"
+export ENABLE_CONTRIB=1;export ENABLE_HEADLESS=0;
+export CMAKE_ARGS="-DCUDA_ARCH_BIN=8.6 -DCUDA_FAST_MATH=ON -DCUDA_HOST_COMPILER=/opt/cuda/bin/gcc -DCUDA_nvcuvid_LIBRARY=/usr/lib/libnvcuvid.so -DEIGEN_INCLUDE_PATH=/usr/include/eigen3 -DENABLE_FAST_MATH=ON -DLAPACK_CBLAS_H=/usr/include/cblas.h -DLAPACK_LAPACKE_H=/usr/include/lapacke.h -DLAPACK_LIBRARIES=/usr/lib/liblapack.so;/usr/lib/libblas.so;/usr/lib/libcblas.so -DOPENCV_DNN_CUDA=ON -DOPENCV_ENABLE_NONFREE=ON -DOpenGL_GL_PREFERENCE=GLVND -DWITH_CUBLAS=ON -DWITH_CUDA=ON -DWITH_CUDNN=ON -DWITH_CUFFT=ON -DWITH_LAPACK=ON -DWITH_NVCUVID=ON -DWITH_OPENCL=ON -DWITH_OPENGL=ON -DWITH_QT=5 -DWITH_TBB=ON -DWITH_VULKAN=ON"
 wget https://raw.githubusercontent.com/archlinux/svntogit-packages/packages/opencv/trunk/vtk9.patch
 patch -d opencv-python/opencv -p1 < vtk9.patch
 pip wheel . --verbose
@@ -681,6 +707,18 @@ General configuration for OpenCV 4.5.5 =====================================
 
 # Issues
 ## Building GitHub Python Wheel
+### TBB
+Build logs show
+```
+  -- Found TBB (cmake): _lib-NOTFOUND
+```
+TBB seems to be installed
+But later on  I see 
+```
+ --   Parallel framework:            TBB (ver 2021.5 interface 12050)
+```
+So I have no idea if it's working or not
+
 ### LAPACK
 The AUR opencv package used to require a patch for LAPACK
 https://aur.archlinux.org/cgit/aur.git/tree/opencv-lapack-3.10.patch?h=opencv-git
@@ -725,6 +763,39 @@ wget https://raw.githubusercontent.com/archlinux/svntogit-packages/packages/open
 patch -d opencv-python/opencv -p1 < vtk9.patch
 ```
 This seemed to fix things
+
+### QT Version
+Of course Manjaro ended up prompting me to update which ended up replacing python 3.9 with 3.10 as a default and a bunch of other things.
+This was a PITA since getting `pipx` and `virtualenv` to work again took some time.
+However, trying to get a new build going for Python 10 runs into issues related to QT.
+```
+/home/alex/workspace/build-github-opencv-python/opencv-python/opencv_contrib/modules/cvv/src/qtutil/matchview/keypointmanagement.cpp:4:10: fatal error: QVBoxLayout: No such file or directory
+      4 | #include <QVBoxLayout>
+        |          ^~~~~~~~~~~~~
+
+```
+Both `qt5-base` and `python-qt5` are installed. I also ensure my `virtualenv` has `PyQT5`. Reinstalling did not help.
+Arch shows `qt5-base` flagged as out-of-date but this likely doesn't mean much.
+Some possibly relevant flags I found:
+- `WITH_QT5=ON`
+- `WITH_QT=5`
+- `QT_SELECT=5`
+- `Qt5Widgets_DIR=/usr/include/qt/QtWidgets`
+- `Qt5_DIR=/usr/include/qt`
+
+Setting `-DQt5_DIR=/usr/include/qt` and rebuilding did not help.
+
+I then finally decided to look at my build log.
+```
+  --   GUI:                           QT6
+  --     QT:                          YES (ver 6.2.2 )
+```
+Seems like updating the system also installed QT6 via `qt6-base` and now it's trying to use it.
+
+Setting `-DWITH_QT5=ON` and `-DQT_SELECT=5` didn't help.
+
+Setting `-DWITH_QT=5` seemed to fix things.
+\
 ## Numpy API version (RuntimeError: module compiled against API version 0xe but this version of numpy is 0xd)
 With Tensorflow (TF) 2.5.0 and Numpy 1.21.X. 
 Getting an error because of what appears to be numpy version.
